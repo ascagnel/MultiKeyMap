@@ -1,4 +1,5 @@
-= MultiKeyMap =
+MultiKeyMap
+===========
 
 Ever have a set or array of objects you wish you could address by any key?
 Enter MultiKeyMap -- using reflection, it makes all public getters
