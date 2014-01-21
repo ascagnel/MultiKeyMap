@@ -1,5 +1,8 @@
 package com.ascagnel.MultiKeyMap;
 
+import java.beans.IntrospectionException;
+import java.beans.Introspector;
+import java.beans.PropertyDescriptor;
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -41,22 +44,31 @@ public class MultiKeyMap<T> implements Serializable {
 	 * @throws IllegalArgumentException
 	 * @throws IllegalAccessException
 	 * @throws InvocationTargetException
+	 * @throws IntrospectionException 
 	 */
 	public void put(T input) throws IllegalArgumentException,
-			IllegalAccessException, InvocationTargetException {
+			IllegalAccessException, InvocationTargetException, IntrospectionException {
 		this.data.add(input);
 		Integer inputIndex = this.data.indexOf(input);
 
-		for (Method method : input.getClass().getMethods()) {
-			if (method.isAccessible()
-					&& method.getParameterTypes().length == 0
-					&& (method.getName().startsWith("get") || method.getName()
-							.startsWith("is"))
-					&& this.index.containsKey(method.getName())
-					&& this.index.get(method.getName()) != null) {
-				this.index.get(method.getName()).put(
-						method.invoke(input, new Object[0]), inputIndex);
+		for (PropertyDescriptor propertyDescriptor : Introspector.getBeanInfo(input.getClass(), Object.class).getPropertyDescriptors()) {
+//		for (Method method : input.getClass().getDeclaredMethods()) {
+			
+			String propertyName = propertyDescriptor.getName();
+			Method method = propertyDescriptor.getReadMethod();
+			
+			if (method.getParameterTypes().length != 0
+					&& !propertyName.startsWith("get")
+					&& !propertyName.startsWith("is")) {
+				continue;
 			}
+
+			if (!this.index.containsKey(propertyName) || this.index.get(propertyName) == null) {
+				this.index.put(propertyName, new HashMap<Object, Integer>());
+			}
+			
+			System.out.println(propertyName);
+			this.index.get(propertyName).put(method.invoke(input, new Object[0]), inputIndex);
 		}
 	}
 
@@ -64,26 +76,30 @@ public class MultiKeyMap<T> implements Serializable {
 	 * Given a key and value lookup pair, will return a data item or null if the
 	 * item does not exist.
 	 * 
-	 * @param keyType 
-	 * @param keyValue 
+	 * @param keyType
+	 * @param keyValue
 	 * @return
 	 */
-	public T get(Class<?> keyType, Object keyValue) {
-		if (!this.index.containsKey(keyType.getName())) {
-			return null; 
-		}
-		
-		if (!this.index.get(keyType.getName()).containsKey(keyValue)) {
+	public T get(String keyType, Object keyValue) {
+		if (!this.index.containsKey(keyType)) {
 			return null;
 		}
-		return this.data.get(this.index.get(keyType.getName()).get(keyValue));
+
+		if (!this.index.get(keyType).containsKey(keyValue)) {
+			return null;
+		}
+		return this.data.get(this.index.get(keyType).get(keyValue));
 	}
 
 	public Iterator<T> iterator() {
 		return this.data.iterator();
 	}
-	
+
 	public boolean containsKeyType(Class<?> key) {
 		return this.index.containsKey(key.getName());
+	}
+
+	public boolean isEmpty() {
+		return this.data.isEmpty();
 	}
 }
